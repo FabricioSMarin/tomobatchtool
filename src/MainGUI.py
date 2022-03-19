@@ -37,18 +37,14 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 '''
 
-import sys
-import os
 import datetime
-try:
-    from PyQt4.QtGui import *
-    from PyQt4.QtCore import *
-except ImportError:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
+import os
+import sys
+
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 from RunWidget import RunWidget
-from CreateCoordinatesWidget import CoordinatesWidget
 from CreateScriptWidget import ScriptWidget
 from CoarseScanWidget import CoarseScanWidget
 
@@ -67,11 +63,9 @@ class App(QWidget):
 
         config_param_dict = self.load_config_file()
         self.config_dir = config_param_dict['config_dir']
-        self.pv_prefix = config_param_dict['pv_prefix']
 
         #  Create variables for each tab
         self.tabs = None
-        self.table_tab = None
         self.file_tab = None
         self.run_tab = None
         self.coarse_scan_tab = None
@@ -92,8 +86,6 @@ class App(QWidget):
         self.setGeometry(self.left, self.top, self.width, self.height)
 
         self.tabs = QTabWidget()
-
-        self.table_tab = CoordinatesWidget(self, self.pv_prefix)
         self.file_tab = ScriptWidget(self)
         self.run_tab = RunWidget(self)
         self.coarse_scan_tab = CoarseScanWidget(self)
@@ -106,6 +98,16 @@ class App(QWidget):
 
         #  Put values from the loaded configuration file into the widgets.
         self.set_default_values(config_dict)
+
+
+        exitAction = QAction('Exit', self)
+        exitAction.triggered.connect(self.close)
+        exitAction.setShortcut('Ctrl+Q')
+
+        closeAction = QAction('Quit', self)
+        closeAction.triggered.connect(sys.exit)
+        closeAction.setShortcut('Ctrl+X')
+
 
         #  Show widgets
         self.show()
@@ -124,7 +126,7 @@ class App(QWidget):
         self.removeRowButton = QPushButton('Remove Row')
         self.removeRowButton.setStyleSheet('background-color: yellow')
         self.removeRowButton.setMaximumSize(200, 25)
-        self.removeRowButton.clicked.connect(self.on_remove_row_button_clicked)
+        #! self.removeRowButton.clicked.connect(self.on_remove_row_button_clicked)
 
         self.loadConfigButton = QPushButton('Load Config')
         self.loadConfigButton.setStyleSheet('background-color: yellow')
@@ -141,7 +143,6 @@ class App(QWidget):
     def create_layout(self):
 
         #  Add widgets to each tab
-        self.tabs.addTab(self.table_tab, 'Coordinates')
         self.tabs.addTab(self.coarse_scan_tab, 'Coarse Scans')
         self.tabs.addTab(self.file_tab, 'Create Script')
         self.tabs.addTab(self.run_tab, 'Run Script')
@@ -171,9 +172,6 @@ class App(QWidget):
 
     def set_default_values(self, config_dict):
 
-        self.table_tab.useTextValuesRadioButton.setChecked(config_dict['use_text_values'])
-        self.table_tab.usePVValuesRadioButton.setChecked(config_dict['use_pv_values'])
-        self.table_tab.textT.setText(config_dict['theta'])
         self.file_tab.useThetaCheckBox.setChecked(config_dict['use_theta'])
         self.file_tab.useZCheckBox.setChecked(config_dict['use_z'])
         self.file_tab.text_template.setText(config_dict['template'])
@@ -187,26 +185,25 @@ class App(QWidget):
         self.coarse_scan_tab.text_x_size.setText(config_dict['x_step_size'])
         self.coarse_scan_tab.text_y_size.setText(config_dict['y_step_size'])
         self.coarse_scan_tab.text_dwell.setText(config_dict['dwell'])
-
+        self.coarse_scan_tab.coarse_dir = config_dict["coarse_dir"]
+        self.coarse_scan_tab.update_tree()
 
         return
 
     #  Clear all entries from both tables
     @pyqtSlot()
     def on_clear_table_button_click(self):
-
-        self.table_tab.clear_table()
         self.file_tab.clear_table()
 
         return
-
-    @pyqtSlot()
-    def on_remove_row_button_clicked(self):
-        rows = self.table_tab.get_selected_rows()
-        if not rows:
-            rows = self.file_tab.get_selected_rows()
-        self.table_tab.remove_row(rows)
-        self.file_tab.remove_row(rows)
+    #
+    # @pyqtSlot()
+    # def on_remove_row_button_clicked(self):
+    #     # rows = self.table_tab.get_selected_rows()
+    #     if not rows:
+    #         rows = self.file_tab.get_selected_rows()
+    #     self.table_tab.remove_row(rows)
+    #     self.file_tab.remove_row(rows)
 
         return
 
@@ -216,7 +213,6 @@ class App(QWidget):
         config_param_dict = self.load_config_file()
 
         self.config_dir = config_param_dict['config_dir']
-        self.pv_prefix = config_param_dict['pv_prefix']
 
         self.set_default_values(config_param_dict)
 
@@ -229,49 +225,43 @@ class App(QWidget):
         self.config_dir = os.path.dirname(file_name[0])
         try:
             with open(file_name[0], 'w') as config_file:
-                #  Put some comments in the file.
-                config_file.write('Here is the structure of this file:\n')
+                config_file.write('     Here is the structure of this file:\n')
+
                 config_file.write('     The date and time the file was written.\n')
                 config_file.write('     The directory that this file is in.\n')
-                config_file.write('     The prefix of coordinate system PVs.\n')
-                config_file.write('     Use stage positions entered manually? True/False\n')
-                config_file.write('     Use stage positions from PV values? True/False\n')
-                config_file.write('     The default theta position.\n')
-                config_file.write('     Use the theta angle in the scan? True/False\n')
-                config_file.write('     Use the Z value in the scan? True/False\n')
-                config_file.write('     The path to the scan script template.\n')
-                config_file.write('     The path to use for saving the scan script and log file.\n')
-                config_file.write('     The name of the scan script file.\n')
-                config_file.write('     The name of the log file.\n')
+                config_file.write('     The directory where coarse scans are in.\n')
+                # config_file.write('     Use stage positions entered manually? True/False\n')
+                # config_file.write('     Use stage positions from PV values? True/False\n')
+                # config_file.write('     The default theta position.\n')
+                # config_file.write('     Use the theta angle in the scan? True/False\n')
+                # config_file.write('     Use the Z value in the scan? True/False\n')
+                # config_file.write('     The path to the scan script template.\n')
+                # config_file.write('     The path to use for saving the scan script and log file.\n')
+                # config_file.write('     The name of the scan script file.\n')
+                # config_file.write('     The name of the log file.\n')
                 config_file.write('     The PV for the sample rotation stage position.\n')
                 config_file.write('     The change in angle between 2D scans.\n')
                 config_file.write('     The element to use from coarse tomo scans.\n')
                 config_file.write('     The scaling parameter for finding sample boundaries.\n')
-                #  Write the current date and time.
+
                 config_file.write('{}\n'.format(datetime.datetime.now()))
-                #  Write the save directory
                 config_file.write('{}\n'.format(self.config_dir))
-                #  Write the PV prefix
-                config_file.write('{}\n'.format(self.pv_prefix))
-                #  Write the from the coordinate table tab.
-                config_file.write('{}\n'.format(str(self.table_tab.useTextValuesRadioButton.isChecked())))
-                config_file.write('{}\n'.format(str(self.table_tab.usePVValuesRadioButton.isChecked())))
-                config_file.write('{}\n'.format(self.table_tab.textT.text()))
-                #  Write values from the create scan tab.
-                config_file.write('{}\n'.format(str(self.file_tab.useThetaCheckBox.isChecked())))
-                config_file.write('{}\n'.format(str(self.file_tab.useZCheckBox.isChecked())))
+                config_file.write('{}\n'.format(self.coarse_dir))
+                # config_file.write('{}\n'.format(str(self.file_tab.useThetaCheckBox.isChecked())))
+                # config_file.write('{}\n'.format(str(self.file_tab.useZCheckBox.isChecked())))
                 config_file.write('{}\n'.format(self.file_tab.text_template.text()))
                 config_file.write('{}\n'.format(self.file_tab.text_path.text()))
                 config_file.write('{}\n'.format(self.file_tab.text_file.text()))
+                config_file.write('{}\n'.format(self.coarse_scan_tab.text_x_size.text()))
+                config_file.write('{}\n'.format(self.coarse_scan_tab.text_y_size.text()))
+                config_file.write('{}\n'.format(self.coarse_scan_tab.text_dwell.text()))
+
                 config_file.write('{}\n'.format(self.file_tab.log_file.text()))
-                #  Write values from the coarse scan tab.
                 config_file.write('{}\n'.format(self.coarse_scan_tab.text_stage_pv.text()))
                 config_file.write('{}\n'.format(self.coarse_scan_tab.text_theta.text()))
                 config_file.write('{}\n'.format(self.coarse_scan_tab.text_element.text()))
                 config_file.write('{}\n'.format(self.coarse_scan_tab.text_coefficient.text()))
-                config_file.write('{}\n'.format(self.coarse_scan_tab.text_x_size.text()))
-                config_file.write('{}\n'.format(self.coarse_scan_tab.text_y_size.text()))
-                config_file.write('{}\n'.format(self.coarse_scan_tab.text_dwell.text()))
+
 
 
 
@@ -292,18 +282,22 @@ class App(QWidget):
 
     def load_config_file(self):
 
-        file_name = QFileDialog.getOpenFileName(parent=self,caption='Load Config File',directory=self.config_dir)
-        #file_name = ["/home/beams8/USER2IDE/python/CoordinateTransforms/src/save_config_2ide.txt", "dummy"]
+        # file_name = QFileDialog.getOpenFileName(parent=self,caption='Load Config File',directory=self.config_dir)
+        #TODO: have this load automatically, print out or diplsay something saying where conig file was loaded from.
+        file_name = ["/Users/marinf/conda/tomobatchtool/src/default_config.txt", "dummy"]
         config_dict = {}
 
         try:
             with open(file_name[0], 'r') as config_file:
 
-                for i in range(18):
+                for i in range(17):
                     line = config_file.readline()
 
                 line = config_file.readline()
                 config_dict['config_dir'] = line.rstrip('\n')
+
+                line = config_file.readline()
+                config_dict['coarse_dir'] = line.rstrip('\n')
 
                 line = config_file.readline()
                 config_dict['pv_prefix'] = line.rstrip('\n')
@@ -372,13 +366,46 @@ class App(QWidget):
             return False
         else:
             raise ValueError
+    def get_params(self):
+        #make a dict of all qtLineEdit fields of PV entries.
+        pv_dict = {
+        "x_motor":["",""],
+        "x_step":["",""],
+        "x_width":["",""],
+        "x_npts":["",""],
+        "x_pos":["",""],
 
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-#     ex = App()
-#     app.exec_()
-#     # sys.exit()
+        "y_motor":["",""],
+        "y_step":["",""],
+        "y_width":["",""],
+        "y_npts":["",""],
+        "y_pos":["",""],
 
+        "z_motor":["",""],
+        "z_pos":["",""],
+
+        "r_motor":["",""],
+        "r_pos":["",""],
+        "r_step":["",""]
+        }
+
+        for key in pv_dict:
+            pvLabel = pv_dict[key][0]
+            pv_dict[key][1] = pvLabel.text()
+            
+
+
+
+    def closeEvent(self, event):
+        try:
+            print("Exiting")
+            # sections = config.TOMO_PARAMS + ('gui', )
+            # home = expanduser("~")
+            # config.write('{}/xrftomo.conf'.format(home), args=self.params, sections=sections)
+        except IOError as e:
+            print("exception")
+            # self.gui_warn(str(e))
+            # self.on_save_as()
 
 def Start():
     m = App()

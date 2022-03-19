@@ -15,7 +15,7 @@ Here is the structure of this file:
      The change in angle between 2D scans.
      The element to use from coarse tomo scans.
      The scaling parameter for finding sample boundaries.
-/home/beams8/USER2IDE/python/CoordinateTransforms/src
+/Users/marinf/conda/tomobatchtool/src/default_config.txt
 /Users/marinf/conda/tomobatchtool/demo_coarse
 2xfmCS:
 True

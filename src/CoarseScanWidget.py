@@ -42,13 +42,10 @@ from CreateScriptWidget import *
 from CheckBoxDialog import QMessageBoxWithCheckBox
 from os.path import expanduser
 
-try:
-    from PyQt4.QtGui import *
-    from PyQt4.QtCore import *
-except ImportError:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
+
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import pyqtSignal
 
 class CoarseScanWidget(QWidget):
@@ -59,7 +56,7 @@ class CoarseScanWidget(QWidget):
         self.parent = parent
         self.scan_boundary = XRFBoundary()
         self.scan_boundary.roiChangedSig.connect(self.bounds_changed)
-        self.file_path = None
+        self.coarse_dir = None
         self.file_list = None
         self.scan_params = None
         self.scan_params2 = None
@@ -74,8 +71,7 @@ class CoarseScanWidget(QWidget):
         files_hbox.addWidget(self.tree_view)
         files_hbox.addWidget(self.list_view)
 
-        if path is None:
-            path = expanduser("~")
+        path = expanduser("~")
 
         self.dir_model = QFileSystemModel()
         self.dir_model.setRootPath(path)
@@ -84,6 +80,8 @@ class CoarseScanWidget(QWidget):
         self.tree_view.setModel(self.dir_model)
 
         self.tree_view.setRootIndex(self.dir_model.index('/'))
+        # self.tree_view.setRootIndex(self.dir_model.index('/Users/marinf/conda/tomobatchtool'))
+
         self.tree_view.setColumnWidth(0,200)
 
         #  Enable selection of multiple files.
@@ -100,6 +98,13 @@ class CoarseScanWidget(QWidget):
         self.select_element_button.setMaximumSize(200, 25)
         self.select_element_button.setToolTip('Open a window to select an element.')
         self.select_element_button.clicked.connect(self.on_select_element_button_click)
+
+        self.elem_dropdown = QComboBox()
+        self.elem_dropdown.setStyleSheet('background-color: yellow')
+        self.elem_dropdown.setMaximumSize(200, 25)
+        self.elem_dropdown.setToolTip('select element representative of sample volume.')
+        self.elem_dropdown.currentIndexChanged.connect(self.element_changed)
+
 
         self.bound_y = QCheckBox("Bound y")
         self.bound_y.setChecked(True)
@@ -198,7 +203,8 @@ class CoarseScanWidget(QWidget):
 
         grid_layout = QGridLayout()
         grid_layout.addWidget(self.select_files_button, 0, 0)
-        grid_layout.addWidget(self.select_element_button, 1, 0)
+        grid_layout.addWidget(self.elem_dropdown, 1, 0)
+        # grid_layout.addWidget(self.select_element_button, 1, 0)
         grid_layout.addWidget(self.build_scan_button, 2, 0)
         grid_layout.addWidget(self.show_plots_button, 3, 0)
         grid_layout.addWidget(self.label_ETA,4,0)
@@ -240,6 +246,10 @@ class CoarseScanWidget(QWidget):
 
         return
 
+    def update_tree(self):
+        self.tree_view.setCurrentIndex(self.dir_model.index(self.coarse_dir))
+        self.on_directory_clicked(self.dir_model.index(self.coarse_dir))
+
     def on_files_selected_changed(self):
 
         items = self.list_view.selectedItems()
@@ -252,11 +262,12 @@ class CoarseScanWidget(QWidget):
 
     def on_directory_clicked(self, index):
 
-        self.file_path = self.dir_model.fileInfo(index).absoluteFilePath()
+        self.coarse_dir = self.dir_model.fileInfo(index).absoluteFilePath()
+        #self.dir_model.filePath(self.tree_view.selectionModel().selectedIndexes()[0])
         #tmp
-        # self.file_path = '/home/fabricio/scans/coarsescan'
+        # self.coarse_dir = '/home/fabricio/scans/coarsescan'
         self.list_view.clear()
-        file_list = os.listdir(self.file_path)
+        file_list = os.listdir(self.coarse_dir)
         #tmp
         # file_list = ['2xfm_0046.h5', '2xfm_0047.h5', '2xfm_0048.h5', '2xfm_0049.h5', '2xfm_0044.h5', '2xfm_0045.h5', '2xfm_0043.h5']
         for file in file_list:
@@ -265,11 +276,11 @@ class CoarseScanWidget(QWidget):
         return
 
     def on_select_files_button_click(self):
-        #tmp
-        # self.file_path = '/home/fabricio/scans/coarsescan'
+
+        # self.coarse_dir = '/home/fabricio/scans/coarsescan'
         # self.file_list = ['2xfm_0046.h5', '2xfm_0047.h5', '2xfm_0048.h5', '2xfm_0049.h5', '2xfm_0044.h5', '2xfm_0045.h5', '2xfm_0043.h5']
         stage_pv = self.text_stage_pv.text()
-        if self.file_path is None or stage_pv is '':
+        if self.coarse_dir is None or stage_pv is '':
             err_msg = QMessageBox()
             err_msg.setIcon(QMessageBox.Critical)
             err_msg.setText('Missing Information')
@@ -278,10 +289,9 @@ class CoarseScanWidget(QWidget):
                                     ' PV has been given for the rotation stage.')
             err_msg.setStandardButtons(QMessageBox.Ok)
             ret_val = err_msg.exec_()
-
             return
         else:
-            self.scan_boundary.open_files(self.file_path, self.file_list, stage_pv)
+            self.scan_boundary.open_files(self.coarse_dir, self.file_list, stage_pv)
             self.select_element_button.setDisabled(False)
             num_files = len(self.scan_boundary.get_hdf_file_list())
             self.text_num_files.setText('{} Files Selected'.format(num_files))
@@ -295,9 +305,33 @@ class CoarseScanWidget(QWidget):
             err_msg.setStandardButtons(QMessageBox.Ok)
 
             ret_val = err_msg.exec_()       
-        else:   
+        else:
+            self.init_elem_dropdown()
             return
         return
+
+    def update_h5_dir(self, new_dir, config_file):
+        with open(config_file, "r") as file:
+            data = file.readlines()
+
+        data[18] = new_dir+"\n"
+        with open(config_file,"w") as file:
+            file.writelines(data)
+
+    def element_changed(self):
+        # element = self.elem_dropdown.currentIndex()
+
+        pass
+
+    def init_elem_dropdown(self):
+        self.scan_boundary.create_element_list()
+        elem_list = self.scan_boundary.get_element_list()
+
+        self.elem_dropdown.clear()
+        for j in elem_list:
+            self.elem_dropdown.addItem(j)
+        return
+
 
     def on_select_element_button_click(self):
 

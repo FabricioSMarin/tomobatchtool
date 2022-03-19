@@ -202,8 +202,8 @@ class ScriptWidget(QWidget):
         file_dialog.setFileMode(QFileDialog.AnyFile)
 
         if file_dialog.exec_():
-            file_path = file_dialog.selectedFiles()
-            self.text_template.setText(file_path[0])
+            coarse_dir = file_dialog.selectedFiles()
+            self.text_template.setText(coarse_dir[0])
 
         return
 
@@ -214,8 +214,8 @@ class ScriptWidget(QWidget):
         file_dialog.setFileMode(QFileDialog.Directory)
 
         if file_dialog.exec_():
-            file_path = file_dialog.selectedFiles()
-            self.text_path.setText(file_path[0])
+            coarse_dir = file_dialog.selectedFiles()
+            self.text_path.setText(coarse_dir[0])
 
         return
 
